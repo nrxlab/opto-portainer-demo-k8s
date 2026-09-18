@@ -1,4 +1,7 @@
-# Opto22 & Portainer demo using groov Manage REST API
+# Opto22 & Portainer demo 
+# Utilizing groov Manage REST API
+
+A simple containerized go project to showcase the advantages of Opto22's REST API functionality on groov RIO modules with the additional of kubernetes manifests and option for Xiid Stlink setup secure access configurations.
 
 Containerized collector for direct groov RIO I/O reads through the groov Manage REST API, with MQTT publishing to a minimal Mosquitto broker.
 
