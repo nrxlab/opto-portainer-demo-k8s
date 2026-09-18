@@ -11,13 +11,27 @@ GET /manage/api/v1/io/local/modules/<module>/digital/values
 
 It discovers channel configuration once at startup and publishes a compact name-keyed JSON payload.
 
+# deployments
+
+Clone this repository
+```
+git clone https://github.com/nrxlab/opto-portainer-demo-k8s.git
+```
+
 ## configure
 
-copy the template and fill in your device's values:
+Copy the template and fill in your device's values:
 
 ```bash
-cp .env.example .env
+cp secrets-template.yaml secrets.yaml
 ```
+
+apply to node or cluster directly:
+```
+kubectl -f apply secrets.yaml
+```
+
+The secrets can also be created directly within the Portainer user interface by using the "Create from code" action utilizing the secrets-template.yaml from this repository and then editing created secrets within Portainer directly to update with the privileged information.
 
 Supported output modes:
 
@@ -25,54 +39,20 @@ Supported output modes:
 - `mqtt`
 - `both`
 
-## quick start: clone + compose (prebuilt image)
-
-typical approach for the demo — no Go toolchain or local build needed, the collector image is pulled from Docker Hub:
-
-```bash
-git clone https://github.com/nrxlab/opto-portainer-demo.git
-cd option3-rest-collector
-cp .env.example .env
-# edit .env: set OPTO_HOST and OPTO_API_KEY at a minimum
-
-docker compose up -d
-```
-
-## build locally instead
-
-if you want to build the collector image yourself (uses the `build:` section in `compose.yml`):
-
-```bash
-docker compose up --build
-```
-
-## discover actual module layout
-
-```bash
-docker compose run --rm opto-rio-rest-collector --discover
-```
-
-## run collector + broker
-
-```bash
-docker compose up -d
-```
-
-follow the logs:
-
-```bash
-docker compose logs -f opto-rio-rest-collector
-```
+The deployment manifest has commented options to support the following:
+- namespace and secret definitions for a single file deployment
+- Xiid Stlink sidecar to the mosquitto broker to enable secure remote access (utilize the deployment-xiid.yaml)
+- nodePort option to enable mosquitto broker access from a specific node/host
 
 ## subscribe to the broker
 
-from another shell:
+From another shell:
 
 ```bash
 docker compose exec mosquitto mosquitto_sub -t 'opto/rio/#' -v
 ```
 
-using `mosquitto-clients` if installed:
+Using `mosquitto-clients` if installed:
 
 ```bash
 mosquitto_sub -h localhost -p 1883 -t 'opto/rio/#' -v
@@ -95,4 +75,3 @@ mosquitto_sub -h localhost -p 1883 -t 'opto/rio/#' -v
 ```
 
 Set `OPTO_INCLUDE_RAW=true` to also include raw packed analog/digital arrays.
-

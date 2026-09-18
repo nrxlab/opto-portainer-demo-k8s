@@ -1,5 +1,6 @@
 # secrets / local config
 .env
+secrets.yaml
 
 # build artifacts
 /out/

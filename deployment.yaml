@@ -1,0 +1,226 @@
+# --- uncomment if creation of required secrets is not performed prior to deployment ---
+# ---
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: opto-portainer-demo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: opto-portainer-demo
+data:
+  mosquitto.conf: |
+    listener 1883
+    allow_anonymous true
+
+    persistence true
+    persistence_location /mosquitto/data/
+    log_dest stdout
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-data
+  namespace: opto-portainer-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-log
+  namespace: opto-portainer-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mosquitto
+  namespace: opto-portainer-demo
+  labels:
+    app: mosquitto
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+        - name: mosquitto
+          image: eclipse-mosquitto:2
+          ports:
+            - containerPort: 1883
+          volumeMounts:
+            - name: config
+              mountPath: /mosquitto/config/mosquitto.conf
+              subPath: mosquitto.conf
+              readOnly: true
+            - name: data
+              mountPath: /mosquitto/data
+            - name: log
+              mountPath: /mosquitto/log
+      volumes:
+        - name: config
+          configMap:
+            name: mosquitto-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: mosquitto-data
+        - name: log
+          persistentVolumeClaim:
+            claimName: mosquitto-log
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mosquitto
+  namespace: opto-portainer-demo
+  labels:
+    app: mosquitto
+spec:
+  type: ClusterIP
+  selector:
+    app: mosquitto
+  ports:
+    - port: 1883
+      targetPort: 1883
+      nodePort: 31883
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: collector-config
+  namespace: opto-portainer-demo
+data:
+  OPTO_DEVICE: "local"
+  OPTO_MODULE: "0"
+  OPTO_ANALOG_CHANNELS: "8"
+  OPTO_POLL_INTERVAL_MS: "500"
+  OPTO_TLS_INSECURE: "true"
+  OPTO_INCLUDE_RAW: "false"
+  OUTPUT_MODE: "mqtt"
+  MQTT_URL: "tcp://mosquitto:1883"
+  MQTT_TOPIC: "opto/rio/grv-r7-mm1001-10/state"
+  MQTT_CLIENT_ID: "opto-rio-rest-collector"
+  MQTT_QOS: "0"
+  MQTT_RETAIN: "false"
+# --- uncomment if creation of required secrets is not performed prior to deployment ---
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: collector-secret
+#   namespace: opto-portainer-demo
+# type: Opaque
+# stringData:
+#   OPTO_HOST: "10.180.0.206"
+#   OPTO_API_KEY: "REPLACE_WITH_OPTO_API_KEY"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opto-rio-rest-collector
+  namespace: opto-portainer-demo
+  labels:
+    app: opto-rio-rest-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opto-rio-rest-collector
+  template:
+    metadata:
+      labels:
+        app: opto-rio-rest-collector
+    spec:
+      containers:
+        - name: opto-rio-rest-collector
+          image: docker.io/portainermatt/opto-portainer-demo:latest
+          env:
+          # --- from collector-secret ---
+            - name: OPTO_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: collector-secret
+                  key: OPTO_HOST
+            - name: OPTO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: collector-secret
+                  key: OPTO_API_KEY
+            # --- from collector-config ---
+            - name: OPTO_DEVICE
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: OPTO_DEVICE
+            - name: OPTO_MODULE
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: OPTO_MODULE
+            - name: OPTO_ANALOG_CHANNELS
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: OPTO_ANALOG_CHANNELS
+            - name: OPTO_POLL_INTERVAL_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: OPTO_POLL_INTERVAL_MS
+            - name: OPTO_TLS_INSECURE
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: OPTO_TLS_INSECURE
+            - name: OPTO_INCLUDE_RAW
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: OPTO_INCLUDE_RAW
+            - name: OUTPUT_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: OUTPUT_MODE
+            - name: MQTT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: MQTT_URL
+            - name: MQTT_TOPIC
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: MQTT_TOPIC
+            - name: MQTT_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: MQTT_CLIENT_ID
+            - name: MQTT_QOS
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: MQTT_QOS
+            - name: MQTT_RETAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-config
+                  key: MQTT_RETAIN
